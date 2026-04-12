@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CircuitMind AI — Electrical Network Solver</title>
+  <meta name="description" content="AI-powered electrical network analysis tool. Solve mesh analysis, nodal analysis, Thevenin, Norton, superposition and more from circuit images or text." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Animated Background -->
+  <div class="bg-grid"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" width="36" height="36">
+            <circle cx="20" cy="20" r="18" stroke="url(#g1)" stroke-width="2"/>
+            <path d="M10 20 L15 20 L17 13 L20 27 L23 13 L26 20 L30 20" stroke="url(#g2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="g1" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6C63FF"/>
+                <stop offset="1" stop-color="#00D4FF"/>
+              </linearGradient>
+              <linearGradient id="g2" x1="10" y1="13" x2="30" y2="27" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6C63FF"/>
+                <stop offset="1" stop-color="#00D4FF"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-name">CircuitMind</span>
+          <span class="logo-badge">AI</span>
+        </div>
+      </div>
+      <div class="header-status" id="apiStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">Checking connection...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="container">
+
+      <!-- Hero Section -->
+      <section class="hero">
+        <h1 class="hero-title">
+          Solve Any Electrical Network
+          <span class="gradient-text">Instantly with AI</span>
+        </h1>
+        <p class="hero-subtitle">
+          Upload a circuit diagram or describe your network in text. Get step-by-step solutions for
+          Mesh Analysis, Thevenin/Norton Equivalents, Superposition, and more — powered by Gemini AI.
+        </p>
+        <div class="capability-chips">
+          <span class="chip">⚡ Mesh Analysis</span>
+          <span class="chip">🔵 Nodal Analysis</span>
+          <span class="chip">🔋 Thevenin/Norton</span>
+          <span class="chip">➕ Superposition</span>
+          <span class="chip">🔺 Delta-Wye</span>
+          <span class="chip">📷 Circuit Images</span>
+        </div>
+      </section>
+
+      <!-- Input Panel -->
+      <section class="input-section">
+        <div class="input-card">
+          
+          <!-- Image Upload -->
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="imageInput" accept="image/*" style="display:none" />
+            <div class="upload-content" id="uploadContent">
+              <div class="upload-icon">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                  <path d="M24 8L24 32M24 8L16 16M24 8L32 16" stroke="url(#uploadGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8 36H40V40H8V36Z" fill="url(#uploadGrad)" opacity="0.3" rx="2"/>
+                  <rect x="8" y="36" width="32" height="4" rx="2" fill="url(#uploadGrad)" opacity="0.3"/>
+                  <defs>
+                    <linearGradient id="uploadGrad" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#6C63FF"/>
+                      <stop offset="1" stop-color="#00D4FF"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <p class="upload-label">Drop circuit image here or <span class="upload-link" id="uploadTrigger">browse</span></p>
+              <p class="upload-hint">PNG, JPG, WEBP accepted · Hand-drawn or printed schematics</p>
+            </div>
+            <div class="upload-preview" id="uploadPreview" style="display:none;">
+              <img id="previewImg" src="" alt="Circuit preview" />
+              <button class="remove-btn" id="removeImage" title="Remove image">✕</button>
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div class="divider">
+            <span>AND / OR</span>
+          </div>
+
+          <!-- Text Query -->
+          <div class="query-section">
+            <label class="query-label" for="queryInput">Describe the circuit or ask a question</label>
+            <div class="query-wrapper">
+              <textarea 
+                id="queryInput" 
+                class="query-input" 
+                placeholder="e.g. 'A 12V source in series with R1=4Ω, then branches into R2=6Ω and R3=3Ω in parallel. Find mesh currents using mesh analysis.'"
+                rows="4"
+              ></textarea>
+              <div class="query-actions">
+                <button class="example-btn" id="exampleBtn">💡 Load Example</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Solve Button -->
+          <button class="solve-btn" id="solveBtn">
+            <span class="solve-btn-icon">⚡</span>
+            <span class="solve-btn-text">Analyze Circuit</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Results Panel -->
+      <section class="results-section" id="resultsSection" style="display:none;">
+        <div class="results-card">
+          <div class="results-header">
+            <h2 class="results-title">
+              <span class="results-icon">🧠</span>
+              Analysis Results
+            </h2>
+            <div class="results-actions">
+              <button class="action-btn" id="copyBtn" title="Copy results">📋 Copy</button>
+              <button class="action-btn" id="clearBtn" title="Clear results">🗑 Clear</button>
+            </div>
+          </div>
+          <div class="results-body" id="resultsBody">
+            <!-- Dynamic content injected here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+        <div class="loading-card">
+          <div class="loader">
+            <div class="loader-ring"></div>
+            <div class="loader-ring"></div>
+            <div class="loader-ring"></div>
+          </div>
+          <p class="loading-title">Analyzing Circuit</p>
+          <p class="loading-step" id="loadingStep">Sending to Gemini AI...</p>
+        </div>
+      </div>
+
+      <!-- Example Queries -->
+      <section class="examples-section">
+        <h3 class="examples-title">Try These Examples</h3>
+        <div class="examples-grid">
+          <button class="example-card" data-example="mesh">
+            <div class="example-icon">🔄</div>
+            <div class="example-content">
+              <h4>Mesh Analysis</h4>
+              <p>Two-loop circuit with two voltage sources</p>
+            </div>
+          </button>
+          <button class="example-card" data-example="thevenin">
+            <div class="example-icon">🔋</div>
+            <div class="example-content">
+              <h4>Thevenin Equivalent</h4>
+              <p>Find Vth and Rth for a resistive network</p>
+            </div>
+          </button>
+          <button class="example-card" data-example="superposition">
+            <div class="example-icon">➕</div>
+            <div class="example-content">
+              <h4>Superposition</h4>
+              <p>Multiple sources — solve independently</p>
+            </div>
+          </button>
+          <button class="example-card" data-example="nodal">
+            <div class="example-icon">🔵</div>
+            <div class="example-content">
+              <h4>Nodal Analysis</h4>
+              <p>Find all node voltages using KCL</p>
+            </div>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
