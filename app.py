@@ -9,8 +9,9 @@ import math
 import socket
 import threading
 import time
+import functools
 from io import StringIO
-from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
+from flask import Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 from flask_cors import CORS
 from google import genai
 from google.genai import types
@@ -23,15 +24,32 @@ from few_shot_examples import get_few_shot_example, get_all_titles
 load_dotenv()
 
 app = Flask(__name__, static_folder='static', static_url_path='')
-CORS(app)
+app.secret_key = os.environ.get('SECRET_KEY', 'circuitmind-dev-secret-2024')
+CORS(app, supports_credentials=True)
 
-# ─── Gemini Client ────────────────────────────────────────────────────────────
+# ─── Gemini Client ───────────────────────────────────────────────────────────
 api_key = os.environ.get("GEMINI_API_KEY")
 client = None
 if api_key:
     client = genai.Client(api_key=api_key)
 else:
-    print("WARNING: GEMINI_API_KEY not set. Please create a .env file with GEMINI_API_KEY=your_key")
+    print("WARNING: GEMINI_API_KEY not set.")
+
+# ─── Auth Config ─────────────────────────────────────────────────────────────
+APP_PIN = os.environ.get("APP_PIN", "")
+
+def login_required(f):
+    """Decorator: redirect to /login if not authenticated (when PIN is set)."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if APP_PIN and not session.get('authenticated'):
+            # API calls: return 401 JSON
+            if request.path.startswith('/analyze') or request.is_json or \
+               request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"error": "Unauthorized. Please log in.", "auth_required": True}), 401
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -43,19 +61,27 @@ _history: list[dict] = []
 MODELS = [
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-flash-latest",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-pro",
 ]
 
+# Transient error signals that should trigger a model fallback
+_RETRYABLE = (
+    "429", "500", "503",
+    "RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL",
+    "quota", "overloaded", "capacity", "high demand",
+    "try again", "server error",
+)
+
 def call_gemini(contents, system_instruction=None, temperature=0.2, max_tokens=8192):
-    """Call Gemini with automatic model fallback on quota errors."""
+    """Call Gemini with automatic model fallback on quota/server errors."""
     config_kwargs = {"temperature": temperature, "max_output_tokens": max_tokens}
     if system_instruction:
         config_kwargs["system_instruction"] = system_instruction
 
     last_error = None
-    for model in MODELS:
+    for i, model in enumerate(MODELS):
         try:
             resp = client.models.generate_content(
                 model=model,
@@ -64,9 +90,12 @@ def call_gemini(contents, system_instruction=None, temperature=0.2, max_tokens=8
             )
             return resp, model
         except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+            err_str = str(e).lower()
+            if any(signal.lower() in err_str for signal in _RETRYABLE):
                 last_error = e
+                print(f"[fallback] {model} failed ({type(e).__name__}), trying next model...")
+                if i < len(MODELS) - 1:
+                    time.sleep(1.5)  # brief pause before next attempt
                 continue
             raise
     raise last_error
@@ -202,17 +231,37 @@ def run_sympy_code(code: str) -> dict:
         "map": map, "min": min, "max": max, "sum": sum, "sorted": sorted,
         "True": True, "False": False, "None": None,
         "__import__": __import__,
-        "complex": complex, "pow": pow,
+        "complex": complex, "pow": pow, "tuple": tuple, "set": set,
+        "bool": bool, "vars": vars, "getattr": getattr,
     }
+
+    # Try importing numpy and scipy for numerical support
+    try:
+        import numpy as np_mod
+        import scipy.signal as sig_mod
+    except ImportError:
+        np_mod = None
+        sig_mod = None
+
     exec_globals = {
         "__builtins__": safe_builtins,
         "math": math,
         "cmath": cmath,
     }
+    if np_mod:
+        exec_globals["np"] = np_mod
+        exec_globals["numpy"] = np_mod
+    if sig_mod:
+        exec_globals["signal"] = sig_mod
 
     try:
         full_code = (
             "from sympy import *\n"
+            "from sympy import symbols, solve, Eq, simplify, factor, expand, "
+            "Matrix, laplace_transform, inverse_laplace_transform, "
+            "dsolve, Function, Derivative, exp, cos, sin, tan, sqrt, pi, I, "
+            "re, im, Abs, arg, conjugate, oo, zoo, nan, diff, integrate, "
+            "apart, together, cancel, limit, series\n"
             "import sympy\n"
             "import math\n"
             "import cmath\n"
@@ -227,6 +276,7 @@ def run_sympy_code(code: str) -> dict:
         result["output"] = buffer.getvalue()
 
     return result
+
 
 
 # ─── Analysis Mode Detector ───────────────────────────────────────────────────
@@ -262,9 +312,40 @@ def build_rag_context(query: str, include_example: bool = True) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Routes
+#  Auth Routes
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route('/login', methods=['GET'])
+def login_page():
+    if not APP_PIN or session.get('authenticated'):
+        return redirect('/')
+    return send_from_directory('static', 'login.html')
+
+@app.route('/login', methods=['POST'])
+def do_login():
+    data = request.get_json(silent=True) or {}
+    pin = data.get('pin', '').strip()
+    if APP_PIN and pin == APP_PIN:
+        session['authenticated'] = True
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Incorrect PIN."}), 401
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
+
+@app.route('/check-auth', methods=['GET'])
+def check_auth():
+    if not APP_PIN:
+        return jsonify({"authenticated": True, "pin_required": False})
+    return jsonify({"authenticated": bool(session.get('authenticated')), "pin_required": True})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  App Routes
 # ─────────────────────────────────────────────────────────────────────────────
 @app.route('/')
+@login_required
 def index():
     return send_from_directory('static', 'index.html')
 
@@ -276,10 +357,12 @@ def health():
         "api_key_set": bool(api_key),
         "knowledge_base": "bakshi_aligned_v2",
         "examples_loaded": len(get_all_titles()),
+        "auth_enabled": bool(APP_PIN),
     })
 
 
 @app.route('/modes', methods=['GET'])
+@login_required
 def get_modes():
     """Return available analysis modes for the frontend."""
     return jsonify({
@@ -297,12 +380,14 @@ def get_modes():
 
 
 @app.route('/history', methods=['GET'])
+@login_required
 def get_history():
     """Return the last 20 queries from this session."""
     return jsonify({"history": _history[-20:]})
 
 
 @app.route('/history', methods=['DELETE'])
+@login_required
 def clear_history():
     """Clear session history."""
     _history.clear()
@@ -310,6 +395,7 @@ def clear_history():
 
 
 @app.route('/analyze', methods=['POST'])
+@login_required
 def analyze():
     """Main endpoint: accepts text query and/or an image, returns full analysis."""
     if not client:

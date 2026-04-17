@@ -4,9 +4,13 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 2 --timeout 120
+    startCommand: gunicorn app:app --workers 2 --timeout 120 --bind 0.0.0.0:$PORT
     envVars:
       - key: GEMINI_API_KEY
-        sync: false   # You will paste this value in the Render dashboard
+        sync: false        # Paste your Gemini API key in the Render dashboard
+      - key: APP_PIN
+        sync: false        # Paste your private PIN — leave blank for no auth
+      - key: SECRET_KEY
+        generateValue: true  # Render auto-generates a secure secret for sessions
       - key: PYTHON_VERSION
         value: 3.11.0

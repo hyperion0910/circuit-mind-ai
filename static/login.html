@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CircuitMind AI — Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #09090f;
+      --card: rgba(14, 14, 28, 0.92);
+      --border: rgba(108, 99, 255, 0.25);
+      --accent-purple: #6C63FF;
+      --accent-cyan: #00D4FF;
+      --text: #f0f0ff;
+      --text-dim: #9090b8;
+      --error: #ff4d6d;
+      --success: #00e5a0;
+      --font: 'Inter', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Animated background */
+    .bg-grid {
+      position: fixed; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .bg-orbs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(90px); opacity: 0.3;
+      animation: float 12s ease-in-out infinite;
+    }
+    .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, #6C63FF, transparent); top: -150px; left: -100px; }
+    .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, #00D4FF, transparent); bottom: -100px; right: -80px; animation-delay: -4s; }
+    .orb-3 { width: 280px; height: 280px; background: radial-gradient(circle, #FF63A5, transparent); top: 50%; left: 50%; animation-delay: -8s; }
+    @keyframes float {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33% { transform: translate(20px,-30px) scale(1.05); }
+      66% { transform: translate(-15px,20px) scale(0.98); }
+    }
+
+    /* Card */
+    .card {
+      position: relative; z-index: 10;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 3rem 2.75rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 60px rgba(108,99,255,0.1);
+      backdrop-filter: blur(24px);
+      animation: fadeUp 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* Logo */
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+      justify-content: center; margin-bottom: 2rem;
+    }
+    .logo-icon { filter: drop-shadow(0 0 12px rgba(108,99,255,0.6)); }
+    .logo-text {
+      font-size: 1.55rem; font-weight: 800; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo-badge {
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      padding: 2px 8px; border-radius: 20px; color: white;
+      -webkit-text-fill-color: white;
+      margin-left: -4px; margin-bottom: 12px; align-self: flex-start;
+    }
+
+    /* Title */
+    .title {
+      text-align: center;
+      font-size: 1.1rem; font-weight: 700;
+      margin-bottom: 0.4rem; color: var(--text);
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 0.82rem; color: var(--text-dim);
+      margin-bottom: 2rem; line-height: 1.6;
+    }
+
+    /* PIN input */
+    .pin-label {
+      display: block;
+      font-size: 0.78rem; font-weight: 600;
+      color: var(--text-dim); text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 0.6rem;
+    }
+    .pin-wrapper { position: relative; }
+    .pin-input {
+      width: 100%;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1rem 0.9rem 1rem;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 1.3rem;
+      letter-spacing: 0.3em;
+      text-align: center;
+      outline: none;
+      transition: all 0.25s;
+    }
+    .pin-input::placeholder { font-size: 0.9rem; letter-spacing: 0.05em; color: rgba(144,144,184,0.4); font-family: var(--font); }
+    .pin-input:focus { border-color: var(--accent-purple); box-shadow: 0 0 0 3px rgba(108,99,255,0.15); }
+    .pin-input.error { border-color: var(--error); box-shadow: 0 0 0 3px rgba(255,77,109,0.12); animation: shake 0.4s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+
+    /* Error text */
+    .error-msg {
+      font-size: 0.78rem; color: var(--error);
+      text-align: center; margin-top: 0.6rem;
+      min-height: 1.1rem;
+      transition: opacity 0.2s;
+    }
+
+    /* Login button */
+    .login-btn {
+      margin-top: 1.5rem;
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-purple), #8B5CF6 50%, var(--accent-cyan));
+      background-size: 200% 200%;
+      border: none; border-radius: 14px;
+      padding: 0.9rem;
+      color: white; font-family: var(--font);
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.01em;
+      transition: all 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .login-btn:hover { box-shadow: 0 8px 28px rgba(108,99,255,0.45); transform: translateY(-1px); }
+    .login-btn:active { transform: translateY(0); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Private notice */
+    .private-notice {
+      margin-top: 2rem;
+      padding: 0.9rem 1rem;
+      background: rgba(255, 77, 109, 0.07);
+      border: 1px solid rgba(255, 77, 109, 0.2);
+      border-radius: 12px;
+      font-size: 0.78rem; color: var(--text-dim);
+      text-align: center; line-height: 1.6;
+    }
+    .private-notice strong { color: var(--error); }
+
+    /* Footer */
+    .footer {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.72rem; color: rgba(144,144,184,0.4);
+    }
+    .footer a {
+      color: var(--accent-purple); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer a:hover { color: var(--accent-cyan); }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="card">
+    <!-- Logo -->
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" width="38" height="38">
+          <circle cx="20" cy="20" r="18" stroke="url(#g1)" stroke-width="2"/>
+          <path d="M10 20 L15 20 L17 13 L20 27 L23 13 L26 20 L30 20" stroke="url(#g2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="g1" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6C63FF"/><stop offset="1" stop-color="#00D4FF"/>
+            </linearGradient>
+            <linearGradient id="g2" x1="10" y1="13" x2="30" y2="27" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6C63FF"/><stop offset="1" stop-color="#00D4FF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;gap:6px;">
+          <span class="logo-text">CircuitMind</span>
+          <span class="logo-badge">AI</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="title">Private Access</p>
+    <p class="subtitle">This tool is for personal use.<br>Enter your PIN to continue.</p>
+
+    <label class="pin-label" for="pinInput">Access PIN</label>
+    <div class="pin-wrapper">
+      <input
+        type="password"
+        id="pinInput"
+        class="pin-input"
+        placeholder="Enter PIN"
+        maxlength="20"
+        autocomplete="current-password"
+        autofocus
+      />
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">
+      ⚡ Access CircuitMind AI
+    </button>
+
+    <div class="private-notice">
+      <strong>🔒 Private Tool</strong><br>
+      This instance is for the owner only. If you'd like your own copy,
+      deploy it yourself from the
+      <a href="https://github.com/hyperion0910/circuit-mind-ai" target="_blank">GitHub repo</a>.
+    </div>
+
+    <div class="footer">
+      CircuitMind AI · EEE Network Analysis · Bakshi Curriculum
+    </div>
+  </div>
+
+  <script>
+    const pinInput = document.getElementById('pinInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorMsg = document.getElementById('errorMsg');
+
+    pinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doLogin();
+      // Clear error on new input
+      errorMsg.textContent = '';
+      pinInput.classList.remove('error');
+    });
+
+    async function doLogin() {
+      const pin = pinInput.value.trim();
+      if (!pin) {
+        showError('Please enter your PIN.');
+        return;
+      }
+
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Verifying…';
+
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ pin }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          loginBtn.textContent = '✅ Access Granted!';
+          loginBtn.style.background = 'linear-gradient(135deg, #00e5a0, #00D4FF)';
+          setTimeout(() => { window.location.href = '/'; }, 600);
+        } else {
+          showError(data.error || 'Incorrect PIN. Try again.');
+          loginBtn.disabled = false;
+          loginBtn.textContent = '⚡ Access CircuitMind AI';
+          pinInput.select();
+        }
+      } catch {
+        showError('Connection error. Please try again.');
+        loginBtn.disabled = false;
+        loginBtn.textContent = '⚡ Access CircuitMind AI';
+      }
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      pinInput.classList.add('error');
+      setTimeout(() => pinInput.classList.remove('error'), 500);
+    }
+  </script>
+</body>
+</html>
