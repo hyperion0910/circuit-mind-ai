@@ -59,12 +59,13 @@ _history: list[dict] = []
 
 # ─── Model Fallback Chain ─────────────────────────────────────────────────────
 MODELS = [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-pro",
+    "gemini-2.0-flash",       # primary — fast, reliable
+    "gemini-2.0-flash-lite",  # lighter / cheaper fallback  
+    "gemini-2.5-flash",       # upgraded fallback
+    "gemini-2.5-pro",         # strongest fallback
 ]
+
+
 
 # Transient error signals that should trigger a model fallback
 _RETRYABLE = (
